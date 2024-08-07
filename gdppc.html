@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        #info {
+            margin: 20px;
+            font-size: 20px;
+        }
+        /* Styles for the loading widget */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="info">Click on a country to see its GDP per capita.</div>
+    <div id="loading">Loading data, please wait...</div> <!-- Loading widget -->
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script> <!-- To load external GeoJSON -->
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([20, 0], 2);
+
+        // Add a tile layer (background map)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Function to determine color based on GDP per capita
+        function getColor(gdp) {
+			if (gdp < 5000) return '#00ff00'; // Green
+			else if (gdp < 15000) return '#ffff00'; // Yellow
+			else if (gdp < 30000) return '#ffa500'; // Orange
+			else if (gdp < 60000) return '#ff4500'; // OrangeRed
+			else if (gdp < 90000) return '#ff0000'; // Red
+			else return '#8b0000'; // Dark Red
+		}
+        // Function to show the loading widget
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Function to hide the loading widget
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Function to fetch GDP per capita of a country
+        function getGdpPerCapita(countryCode) {
+            const base_url = "https://api.worldbank.org/v2/country/{}/indicator/NY.GDP.PCAP.CD";
+            const url = base_url.replace("{}", countryCode) + "?format=json&date=2022"; // Fetch the latest available data
+            return fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data[1] && data[1][0] && data[1][0].value) {
+                        return data[1][0].value; // Return GDP per capita
+                    } else {
+                        throw new Error('GDP per capita data not available');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching GDP per capita:', error);
+                    return null;
+                });
+        }
+
+        // Mapping of country names to their ISO 3166-1 alpha-2 codes
+        var countryCodes = {
+            "Afghanistan": "AF",
+            "Albania": "AL",
+            "Algeria": "DZ",
+            "Andorra": "AD",
+            "Argentina": "AR",
+            "Central African Rep.": "CF",
+            "Congo": "CG",
+            "S. Sudan": "SS",
+            "Somaliland": "SO",
+            "Eq. Guinea": "GQ",
+            "Côte d'Ivoire": "CI",
+            // Add more countries as needed
+			"Afghanistan": "AF",
+			"Argentina": "AR",
+			"Algeria": "DZ",
+			"United States": "US",
+			"Canada": "CA",
+			"France": "FR",
+			"Uruguay": "UY",
+			"Albania": "AL",
+			"Andorra": "AD",
+			"Angola": "AO",
+			"Antigua and Barbuda": "AG",
+			"Armenia": "AM",
+			"Australia": "AU",
+			"Austria": "AT",
+			"Azerbaijan": "AZ",
+			"Bahamas": "BS",
+			"Bahrain": "BH",
+			"Bangladesh": "BD",
+			"Barbados": "BB",
+			"Belarus": "BY",
+			"Belgium": "BE",
+			"Belize": "BZ",
+			"Benin": "BJ",
+			"Bhutan": "BT",
+			"Bolivia": "BO",
+			"Bosnia and Herzegovina": "BA",
+			"Botswana": "BW",
+			"Brazil": "BR",
+			"Brunei": "BN",
+			"Bulgaria": "BG",
+			"Burkina Faso": "BF",
+			"Burundi": "BI",
+			"Cabo Verde": "CV",
+			"Cambodia": "KH",
+			"Cameroon": "CM",
+			"Central African Republic": "CF",
+			"Chad": "TD",
+			"Chile": "CL",
+			"China": "CN",
+			"Colombia": "CO",
+			"Comoros": "KM",
+			"Congo, Democratic Republic of the": "CD",
+			"Congo, Republic of the": "CG",
+			"Costa Rica": "CR",
+			"Croatia": "HR",
+			"Cuba": "CU",
+			"Cyprus": "CY",
+			"Czech Republic": "CZ",
+			"Denmark": "DK",
+			"Djibouti": "DJ",
+			"Dominica": "DM",
+			"Dominican Republic": "DO",
+			"Ecuador": "EC",
+			"Egypt": "EG",
+			"El Salvador": "SV",
+			"Equatorial Guinea": "GQ",
+			"Eritrea": "ER",
+			"Estonia": "EE",
+			"Eswatini": "SZ",
+			"Ethiopia": "ET",
+			"Fiji": "FJ",
+			"Finland": "FI",
+			"Gabon": "GA",
+			"Gambia": "GM",
+			"Georgia": "GE",
+			"Germany": "DE",
+			"Ghana": "GH",
+			"Greece": "GR",
+			"Greenland": "GL",
+			"Grenada": "GD",
+			"Guatemala": "GT",
+			"Guinea": "GN",
+			"Guinea-Bissau": "GW",
+			"Guyana": "GY",
+			"Haiti": "HT",
+			"Honduras": "HN",
+			"Hungary": "HU",
+			"Iceland": "IS",
+			"India": "IN",
+			"Indonesia": "ID",
+			"Iran": "IR",
+			"Iraq": "IQ",
+			"Ireland": "IE",
+			"Israel": "IL",
+			"Italy": "IT",
+			"Jamaica": "JM",
+			"Japan": "JP",
+			"Jordan": "JO",
+			"Kazakhstan": "KZ",
+			"Kenya": "KE",
+			"Kiribati": "KI",
+			"Korea, North": "KP",
+			"Korea, South": "KR",
+			"Kuwait": "KW",
+			"Kyrgyzstan": "KG",
+			"Laos": "LA",
+			"Latvia": "LV",
+			"Lebanon": "LB",
+			"Lesotho": "LS",
+			"Liberia": "LR",
+			"Libya": "LY",
+			"Liechtenstein": "LI",
+			"Lithuania": "LT",
+			"Luxembourg": "LU",
+			"Madagascar": "MG",
+			"Malawi": "MW",
+			"Malaysia": "MY",
+			"Maldives": "MV",
+			"Mali": "ML",
+			"Malta": "MT",
+			"Marshall Islands": "MH",
+			"Mauritania": "MR",
+			"Mauritius": "MU",
+			"Mexico": "MX",
+			"Micronesia": "FM",
+			"Moldova": "MD",
+			"Monaco": "MC",
+			"Mongolia": "MN",
+			"Montenegro": "ME",
+			"Morocco": "MA",
+			"Mozambique": "MZ",
+			"Myanmar (Burma)": "MM",
+			"Namibia": "NA",
+			"Nauru": "NR",
+			"Nepal": "NP",
+			"Netherlands": "NL",
+			"New Zealand": "NZ",
+			"Nicaragua": "NI",
+			"Niger": "NE",
+			"Nigeria": "NG",
+			"North Macedonia": "MK",
+			"Norway": "NO",
+			"Oman": "OM",
+			"Pakistan": "PK",
+			"Palau": "PW",
+			"Panama": "PA",
+			"Papua New Guinea": "PG",
+			"Paraguay": "PY",
+			"Peru": "PE",
+			"Philippines": "PH",
+			"Poland": "PL",
+			"Portugal": "PT",
+			"Qatar": "QA",
+			"Romania": "RO",
+			"Russia": "RU",
+			"Rwanda": "RW",
+			"Saint Kitts and Nevis": "KN",
+			"Saint Lucia": "LC",
+			"Saint Vincent and the Grenadines": "VC",
+			"Samoa": "WS",
+			"San Marino": "SM",
+			"Sao Tome and Principe": "ST",
+			"Saudi Arabia": "SA",
+			"Senegal": "SN",
+			"Serbia": "RS",
+			"Seychelles": "SC",
+			"Sierra Leone": "SL",
+			"Singapore": "SG",
+			"Slovakia": "SK",
+			"Slovenia": "SI",
+			"Solomon Islands": "SB",
+			"Somalia": "SO",
+			"South Africa": "ZA",
+			"South Sudan": "SS",
+			"Spain": "ES",
+			"Sri Lanka": "LK",
+			"Sudan": "SD",
+			"Suriname": "SR",
+			"Sweden": "SE",
+			"Switzerland": "CH",
+			"Syria": "SY",
+			"Taiwan": "TW",
+			"Tajikistan": "TJ",
+			"Tanzania": "TZ",
+			"Thailand": "TH",
+			"Timor-Leste": "TL",
+			"Togo": "TG",
+			"Tonga": "TO",
+			"Trinidad and Tobago": "TT",
+			"Tunisia": "TN",
+			"Turkey": "TR",
+			"Turkmenistan": "TM",
+			"Tuvalu": "TV",
+			"Uganda": "UG",
+			"Ukraine": "UA",
+			"United Arab Emirates": "AE",
+			"United Kingdom": "GB",
+			"United States of America": "US",
+			"Uruguay": "UY",
+			"Uzbekistan": "UZ",
+			"Vanuatu": "VU",
+			"Vatican City": "VA",
+			"Venezuela": "VE",
+			"Vietnam": "VN",
+			"Yemen": "YE",
+			"Zambia": "ZM",
+			"Zimbabwe": "ZW"
+        };
+
+        // URL to GeoJSON file containing countries data
+        var geojsonUrl = 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json';
+
+        // Fetch and add the GeoJSON layer
+        fetch(geojsonUrl)
+            .then(response => response.json())
+            .then(data => {
+                showLoading(); // Show loading widget
+
+                // Create a dictionary to store GDP per capita for each country
+                let countryGdps = {};
+
+                // Fetch GDP per capita for each country
+                Promise.all(Object.entries(countryCodes).map(([country, code]) => 
+                    getGdpPerCapita(code).then(gdp => [country, gdp])
+                ))
+                .then(results => {
+                    results.forEach(([country, gdp]) => {
+                        countryGdps[country] = gdp;
+                    });
+
+                    // Log GDP data for debugging
+                    console.log("Country GDP data:", countryGdps);
+
+                    // Add GeoJSON layer to map with color based on GDP per capita
+                    L.geoJSON(data, {
+                        style: function (feature) {
+                            const countryName = feature.properties.name;
+                            const gdp = countryGdps[countryName];
+                            console.log("Country:", countryName, "GDP:", gdp); // Log each country's GDP for debugging
+                            return {
+                                fillColor: gdp ? getColor(gdp) : '#FFFFFF', // Default color if GDP per capita is not available
+                                weight: 2,
+                                opacity: 1,
+                                color: 'black',
+                                dashArray: '3',
+                                fillOpacity: 0.7
+                            };
+                        },
+                        onEachFeature: function (feature, layer) {
+                            var countryName = feature.properties.name;
+                            // Only add click event if the country is in the list
+                            if (countryCodes[countryName]) {
+                                layer.on({
+                                    click: function () {
+                                        var countryCode = countryCodes[countryName];
+                                        getGdpPerCapita(countryCode).then(gdp => {
+                                            if (gdp !== null) {
+                                                document.getElementById('info').innerText = 'GDP per capita of ' + countryName + ': $' + gdp.toFixed(2);
+                                            } else {
+                                                document.getElementById('info').innerText = 'GDP per capita data for ' + countryName + ' not available.';
+                                            }
+                                        }).catch(error => {
+                                            console.error('Error fetching GDP per capita:', error);
+                                            document.getElementById('info').innerText = 'GDP per capita data for ' + countryName + ' not available.';
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    }).addTo(map);
+
+                    hideLoading(); // Hide loading widget
+                })
+                .catch(error => {
+                    console.error('Error fetching GDP per capita:', error);
+                    hideLoading(); // Hide loading widget even if there's an error
+                });
+            })
+            .catch(error => {
+                console.error('Error loading GeoJSON:', error);
+                hideLoading(); // Hide loading widget if GeoJSON fails to load
+            });
+    </script>
+</body>
+</html>
